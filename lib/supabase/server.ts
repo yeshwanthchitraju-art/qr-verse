@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -13,18 +13,22 @@ const anonKey: string = supabaseAnonKey;
 
 export async function createServerSupabase() {
   const cookieStore = cookies();
-  const all = cookieStore.getAll();
-  const authCookies: Record<string, string> = {};
-  for (const c of all) {
-    if (c.name.startsWith('sb-')) {
-      authCookies[c.name] = c.value;
-    }
-  }
 
-  const cookieHeader = Object.entries(authCookies).map(([k, v]) => `${k}=${v}`).join('; ');
-
-  return createClient(url, anonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Cookie: cookieHeader } },
+  return createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        } catch {
+          // Called from a Server Component — cookies can't be set.
+          // Safe to ignore if middleware has an active session.
+        }
+      },
+    },
   });
 }

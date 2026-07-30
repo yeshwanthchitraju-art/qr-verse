@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase/client';
 import { Logo } from '@/components/shared/logo';
-import { Loader2 } from 'lucide-react';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+import { Loader as Loader2 } from 'lucide-react';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -16,11 +13,6 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     async function handleCallback() {
-      if (!supabaseUrl || !supabaseAnonKey) {
-        setError('Missing Supabase configuration');
-        return;
-      }
-
       const redirect = params.get('redirect') || '/dashboard';
       const code = params.get('code');
 
@@ -29,10 +21,6 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
-      });
-
       const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
       if (exchangeError) {
@@ -40,7 +28,6 @@ export default function AuthCallbackPage() {
         return;
       }
 
-      // Ensure a profile row exists for OAuth users (they may not have full_name)
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: existing } = await supabase

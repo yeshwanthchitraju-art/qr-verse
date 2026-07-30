@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+import { redirect, notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { parseUserAgent, shortHash } from '@/utils';
@@ -16,7 +16,7 @@ export default async function RedirectPage({ params }: Props) {
     .maybeSingle();
 
   if (!data) {
-    redirect('/404');
+    notFound();
   }
 
   const qrId = String(data.id);

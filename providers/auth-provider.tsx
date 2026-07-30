@@ -29,8 +29,6 @@ const AuthContext = createContext<AuthContextValue>({
   refreshProfile: async () => {},
 });
 
-const GUEST_KEY = 'qrverse-guest-init';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
@@ -69,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setSession(data.session);
@@ -84,23 +83,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      (async () => {
-        setSession(newSession);
-        if (newSession?.user) {
-          const anon = newSession.user.is_anonymous === true;
+      setSession(newSession);
+      if (newSession?.user) {
+        const anon = newSession.user.is_anonymous === true;
+        (async () => {
           await loadProfile(newSession.user.id);
           if (anon) await ensureGuestSession(newSession.user.id);
-        } else {
-          setProfile(null);
-        }
+          setLoading(false);
+        })();
+      } else {
+        setProfile(null);
         setLoading(false);
-      })();
+      }
     });
 
     return () => {
       mounted = false;
       sub.subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -121,7 +122,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           data: { full_name: profile?.full_name || '' },
         });
         if (error) throw error;
-        // mark guest session as upgraded (best-effort)
         if (session?.user) {
           await supabase.rpc('mark_guest_upgraded', { target_user_id: session.user.id });
         }
@@ -130,7 +130,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.auth.signOut();
         setProfile(null);
         setSession(null);
-        try { localStorage.removeItem(GUEST_KEY); } catch { /* ignore */ }
       },
       refreshProfile: async () => {
         if (session?.user) await loadProfile(session.user.id);
