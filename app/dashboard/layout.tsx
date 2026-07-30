@@ -6,6 +6,8 @@ import { DashboardSidebar } from '@/components/dashboard/dashboard-sidebar';
 import { DashboardTopbar } from '@/components/dashboard/dashboard-topbar';
 import { GuestBanner } from '@/components/dashboard/guest-banner';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const cookieStore = cookies();
   const isGuest = cookieStore.get('guest_mode')?.value === '1';
