@@ -65,6 +65,7 @@ export const TEMPLATES: TemplateMeta[] = [
   { id: 'retail', name: 'Retail', description: 'Crisp commerce with sale accents.', category: 'Commerce', accent: '#2563eb', surface: '#ffffff', background: '#f1f5f9', preview: { primary: '#2563eb', secondary: '#f1f5f9' } },
   { id: 'corporate', name: 'Corporate', description: 'Trustworthy navy + steel.', category: 'Business', accent: '#1e3a8a', surface: '#ffffff', background: '#f5f7fa', preview: { primary: '#1e3a8a', secondary: '#f5f7fa' } },
   { id: 'dark', name: 'Dark', description: 'Sleek dark mode default.', category: 'Business', accent: '#3b82f6', surface: '#0f172a', background: '#020617', preview: { primary: '#3b82f6', secondary: '#020617' } },
+  { id: 'business-card', name: 'Smart Business Card', description: 'All-in-one digital card: call, WhatsApp, save contact, book, reviews, lead form.', category: 'Business', accent: '#2563eb', surface: '#ffffff', background: '#f8fafc', preview: { primary: '#2563eb', secondary: '#f8fafc' } },
 ];
 
 export const ACCENT_PRESETS = [

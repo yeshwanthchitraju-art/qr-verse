@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Phone, Globe, Mail, MapPin, MessageCircle, Clock, Star,
   Instagram, Facebook, Music, Youtube, Linkedin, Twitter,
-  Send, Image as ImageIcon, Ghost,
+  Send, Image as ImageIcon, Ghost, Download, CalendarCheck,
+  X,
 } from 'lucide-react';
 import type { LandingPageRow } from '@/types';
 import { TEMPLATES } from '@/constants';
@@ -34,18 +35,64 @@ function buildTheme(page: LandingPageRow) {
   return { template, theme, style: formatThemeStyle(theme, template) };
 }
 
+function buildVCard(page: LandingPageRow): string {
+  const name = page.business_name || '';
+  const phone = page.phone || '';
+  const email = page.email || '';
+  const website = page.website || '';
+  const address = page.address || '';
+  return [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `FN:${name}`,
+    `TEL;TYPE=CELL:${phone}`,
+    `EMAIL:${email}`,
+    `URL:${website}`,
+    `ADR:;;${address};;;;`,
+    'END:VCARD',
+  ].join('\n');
+}
+
 export function PublicLandingView({ page }: { page: LandingPageRow }) {
   const { style, theme } = useMemo(() => buildTheme(page), [page]);
   const activeSocials = Object.entries(page.social || {}).filter(([, v]) => v);
   const openHours = (page.hours || []).filter((h) => !h.closed);
+  const isBusinessCard = page.template === 'business-card';
+  const [leadFormOpen, setLeadFormOpen] = useState(false);
+  const [leadSent, setLeadSent] = useState(false);
 
-  const actionButtons: Array<{ label: string; href: string | null; icon: IconType }> = [
+  const actionButtons: Array<{ label: string; href: string | null; icon: IconType; onClick?: () => void }> = [
     { label: 'Call', href: page.phone ? `tel:${page.phone}` : null, icon: Phone },
     { label: 'WhatsApp', href: page.whatsapp ? `https://wa.me/${page.whatsapp.replace(/[^0-9]/g, '')}` : null, icon: MessageCircle },
     { label: 'Email', href: page.email ? `mailto:${page.email}` : null, icon: Mail },
     { label: 'Website', href: page.website || null, icon: Globe },
     { label: 'Directions', href: page.address ? `https://maps.google.com/?q=${encodeURIComponent(page.address)}` : null, icon: MapPin },
   ].filter((b) => b.href);
+
+  function handleSaveContact() {
+    const vcard = buildVCard(page);
+    const blob = new Blob([vcard], { type: 'text/vcard' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${page.business_name.replace(/[^a-z0-9]/gi, '_')}.vcf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleLeadSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLeadSent(true);
+    setTimeout(() => {
+      setLeadFormOpen(false);
+      setLeadSent(false);
+    }, 2000);
+  }
+
+  const bookingUrl = page.theme_config?.booking_url;
+  const reviewsUrl = page.theme_config?.reviews_url;
+  const leadFormEnabled = page.theme_config?.lead_form_enabled ?? isBusinessCard;
+  const instagramUrl = page.social?.instagram;
 
   return (
     <div style={style.root} className="min-h-screen w-full">
@@ -90,6 +137,65 @@ export function PublicLandingView({ page }: { page: LandingPageRow }) {
                 <b.icon className="h-4 w-4" /> {b.label}
               </a>
             ))}
+
+            {/* Save Contact — business card feature */}
+            <button
+              onClick={handleSaveContact}
+              className="flex w-full items-center justify-center gap-2.5 py-3.5 text-sm font-semibold transition-transform active:scale-95"
+              style={style.secondaryButton}
+            >
+              <Download className="h-4 w-4" /> Save Contact
+            </button>
+
+            {/* Book Appointment — business card feature */}
+            {bookingUrl && (
+              <a
+                href={bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2.5 py-3.5 text-sm font-semibold transition-transform active:scale-95"
+                style={style.primaryButton}
+              >
+                <CalendarCheck className="h-4 w-4" /> Book Appointment
+              </a>
+            )}
+
+            {/* Instagram — business card feature */}
+            {instagramUrl && (
+              <a
+                href={instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2.5 py-3.5 text-sm font-semibold transition-transform active:scale-95"
+                style={style.secondaryButton}
+              >
+                <Instagram className="h-4 w-4" /> Instagram
+              </a>
+            )}
+
+            {/* Reviews — business card feature */}
+            {reviewsUrl && (
+              <a
+                href={reviewsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2.5 py-3.5 text-sm font-semibold transition-transform active:scale-95"
+                style={style.secondaryButton}
+              >
+                <Star className="h-4 w-4" /> Reviews
+              </a>
+            )}
+
+            {/* Lead Form — business card feature */}
+            {leadFormEnabled && (
+              <button
+                onClick={() => setLeadFormOpen(true)}
+                className="flex w-full items-center justify-center gap-2.5 py-3.5 text-sm font-semibold transition-transform active:scale-95"
+                style={style.secondaryButton}
+              >
+                <Mail className="h-4 w-4" /> Send Inquiry
+              </button>
+            )}
 
             {(page.cta_buttons || []).map((b) => (
               <a
@@ -169,9 +275,9 @@ export function PublicLandingView({ page }: { page: LandingPageRow }) {
           </Section>
         )}
 
-        {/* Testimonials */}
+        {/* Testimonials / Reviews */}
         {(page.testimonials || []).length > 0 && (
-          <Section title="Testimonials" style={style}>
+          <Section title={isBusinessCard ? 'Reviews' : 'Testimonials'} style={style}>
             <div className="space-y-3">
               {page.testimonials.map((t) => (
                 <div key={t.id} className="rounded-xl p-4" style={style.surface}>
@@ -256,6 +362,58 @@ export function PublicLandingView({ page }: { page: LandingPageRow }) {
           <p className="text-xs" style={style.muted}>Powered by QRVerse</p>
         </footer>
       </div>
+
+      {/* Lead Form Modal */}
+      {leadFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-zinc-900">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold" style={style.title}>Send Inquiry</h2>
+              <button onClick={() => setLeadFormOpen(false)} aria-label="Close">
+                <X className="h-5 w-5 text-muted-foreground" />
+              </button>
+            </div>
+            {leadSent ? (
+              <p className="py-8 text-center text-sm" style={style.muted}>
+                Thank you! Your message has been sent.
+              </p>
+            ) : (
+              <form onSubmit={handleLeadSubmit} className="space-y-3">
+                <input
+                  type="text"
+                  required
+                  placeholder="Your name"
+                  className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="email"
+                  required
+                  placeholder="Your email"
+                  className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="tel"
+                  placeholder="Your phone (optional)"
+                  className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <textarea
+                  required
+                  placeholder="Your message"
+                  rows={3}
+                  className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="submit"
+                  className="w-full rounded-lg py-3 text-sm font-semibold text-white transition-transform active:scale-95"
+                  style={{ background: theme.accentColor }}
+                >
+                  Send
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

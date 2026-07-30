@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { Suspense, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Loader as Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
@@ -13,7 +13,7 @@ import { Logo } from '@/components/shared/logo';
 import { SocialAuth } from '@/components/auth/social-auth';
 import { toast } from 'sonner';
 
-export default function LoginPage() {
+function LoginForm() {
   const params = useSearchParams();
   const redirect = params.get('redirect') || '/dashboard';
   const [email, setEmail] = useState('');
@@ -31,7 +31,6 @@ export default function LoginPage() {
       return;
     }
     toast.success('Welcome back');
-    // Full-page navigation so the auth cookie is present when middleware runs
     window.location.href = redirect;
   }
 
@@ -83,7 +82,7 @@ export default function LoginPage() {
                 <Input
                   id="password" type="password" required value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="••••••••••"
                   className="pl-9"
                 />
               </div>
@@ -111,5 +110,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

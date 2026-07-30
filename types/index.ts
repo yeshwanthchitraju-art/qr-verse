@@ -98,7 +98,8 @@ export type TemplateId =
   | 'event'
   | 'retail'
   | 'corporate'
-  | 'dark';
+  | 'dark'
+  | 'business-card';
 
 export interface ThemeConfig {
   accentColor: string;
@@ -156,7 +157,12 @@ export interface LandingPageRow {
   gallery: GalleryImage[];
   testimonials: Testimonial[];
   cta_buttons: CtaButton[];
-  theme_config: Partial<ThemeConfig>;
+  theme_config: Partial<ThemeConfig> & {
+    booking_url?: string | null;
+    reviews_url?: string | null;
+    lead_form_enabled?: boolean;
+    lead_form_fields?: string[];
+  };
   is_published: boolean;
   created_at: string;
   updated_at: string;
