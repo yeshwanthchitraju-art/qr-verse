@@ -11,6 +11,11 @@ export async function middleware(req: NextRequest) {
   const isDashboard = pathname.startsWith('/dashboard');
   if (!isDashboard) return res;
 
+  // Local guest mode — set by the browser, no Supabase session needed
+  if (req.cookies.get('guest_mode')?.value === '1') {
+    return res;
+  }
+
   if (!url || !anonKey) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = '/login';
@@ -31,7 +36,6 @@ export async function middleware(req: NextRequest) {
     },
   });
 
-  // Validate the session — both registered and anonymous (guest) users are allowed
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     const loginUrl = req.nextUrl.clone();

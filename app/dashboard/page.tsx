@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowUpRight, QrCode, MousePointerClick, Eye, Plus, TrendingUp } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/auth-provider';
+import { getGuestQrHistory } from '@/lib/guest-history';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,12 +29,35 @@ interface OverviewData {
 }
 
 export default function DashboardHome() {
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
 
   const { data: rawData, isLoading } = useQuery<OverviewData>({
-    queryKey: ['dashboard-overview', user?.id],
-    enabled: !!user,
+    queryKey: ['dashboard-overview', user?.id, isGuest],
+    enabled: !!user || isGuest,
     queryFn: async (): Promise<OverviewData> => {
+      if (isGuest) {
+        const all = getGuestQrHistory();
+        const active = all.filter((q) => !q.is_archived);
+        const mapped: RecentQr[] = active.slice(0, 5).map((q) => ({
+          id: q.id,
+          name: q.name,
+          short_id: q.short_id,
+          scans_count: q.scans_count,
+          views_count: q.views_count,
+          is_favorite: q.is_favorite,
+          created_at: q.created_at,
+          landing_pages: q.landing,
+        }));
+        const totals = active.reduce(
+          (acc, q) => {
+            acc.scans += q.scans_count;
+            acc.views += q.views_count;
+            return acc;
+          },
+          { scans: 0, views: 0 }
+        );
+        return { qrs: mapped, totalQrs: active.length, totals };
+      }
       const { data: qrs } = await supabase
         .from('qr_codes')
         .select('id, name, short_id, scans_count, views_count, is_favorite, created_at, landing_pages(slug, business_name, logo_url)')

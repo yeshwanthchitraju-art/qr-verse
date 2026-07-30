@@ -5,12 +5,10 @@ import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import Link from 'next/link';
-import {
-  ArrowLeft, Download, ExternalLink, Copy, Trash2, Loader2,
-  Star, Archive, Save,
-} from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, Copy, Trash2, Loader as Loader2, Star, Archive, Save } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/auth-provider';
+import { getGuestQrHistory, updateGuestQr, deleteGuestQr } from '@/lib/guest-history';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,7 +34,7 @@ interface QrDetail extends QrCodeRow {
 export default function QrDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const qc = useQueryClient();
 
   const [name, setName] = useState('');
@@ -46,9 +44,28 @@ export default function QrDetailPage() {
   const [loaded, setLoaded] = useState(false);
 
   const { data, isLoading } = useQuery<QrDetail | null>({
-    queryKey: ['qr-detail', params.id],
-    enabled: !!user && !!params.id,
+    queryKey: ['qr-detail', params.id, isGuest],
+    enabled: (!!user || isGuest) && !!params.id,
     queryFn: async (): Promise<QrDetail | null> => {
+      if (isGuest) {
+        const item = getGuestQrHistory().find((q) => q.id === params.id);
+        if (!item) return null;
+        return {
+          id: item.id,
+          name: item.name,
+          short_id: item.short_id,
+          folder: item.folder,
+          destination_type: item.destination_type,
+          destination_url: item.destination_url,
+          styling: item.styling,
+          is_favorite: item.is_favorite,
+          is_archived: item.is_archived,
+          scans_count: item.scans_count,
+          views_count: item.views_count,
+          created_at: item.created_at,
+          landing_pages: item.landing ? { slug: item.landing.slug, business_name: item.landing.business_name } : null,
+        } as unknown as QrDetail;
+      }
       const { data, error } = await supabase
         .from('qr_codes')
         .select('*, landing_pages(slug, business_name)')
@@ -71,6 +88,7 @@ export default function QrDetailPage() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (isGuest) { updateGuestQr(params.id!, { name, destination_type: destinationType, destination_url: destinationType === 'url' ? destinationUrl : null, folder }); return; }
       const { error } = await supabase
         .from('qr_codes')
         .update({ name, destination_type: destinationType, destination_url: destinationType === 'url' ? destinationUrl : null, folder })
@@ -79,14 +97,15 @@ export default function QrDetailPage() {
     },
     onSuccess: () => {
       toast.success('QR updated');
-      qc.invalidateQueries({ queryKey: ['qr-detail', params.id] });
-      qc.invalidateQueries({ queryKey: ['qr-codes', user?.id] });
+      qc.invalidateQueries({ queryKey: ['qr-detail', params.id, isGuest] });
+      qc.invalidateQueries({ queryKey: ['qr-codes', user?.id, isGuest] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
+      if (isGuest) { deleteGuestQr(params.id!); return; }
       const { error } = await supabase.from('qr_codes').delete().eq('id', params.id!);
       if (error) throw error;
     },
@@ -242,8 +261,9 @@ export default function QrDetailPage() {
               <Button
                 variant="outline" size="sm" className="flex-1"
                 onClick={async () => {
-                  await supabase.from('qr_codes').update({ is_favorite: !current.is_favorite }).eq('id', current.id);
-                  qc.invalidateQueries({ queryKey: ['qr-detail', params.id] });
+                  if (isGuest) { updateGuestQr(current.id, { is_favorite: !current.is_favorite }); }
+                  else { await supabase.from('qr_codes').update({ is_favorite: !current.is_favorite }).eq('id', current.id); }
+                  qc.invalidateQueries({ queryKey: ['qr-detail', params.id, isGuest] });
                   toast.success(current.is_favorite ? 'Unfavorited' : 'Favorited');
                 }}
               >
@@ -253,8 +273,9 @@ export default function QrDetailPage() {
               <Button
                 variant="outline" size="sm" className="flex-1"
                 onClick={async () => {
-                  await supabase.from('qr_codes').update({ is_archived: !current.is_archived }).eq('id', current.id);
-                  qc.invalidateQueries({ queryKey: ['qr-detail', params.id] });
+                  if (isGuest) { updateGuestQr(current.id, { is_archived: !current.is_archived }); }
+                  else { await supabase.from('qr_codes').update({ is_archived: !current.is_archived }).eq('id', current.id); }
+                  qc.invalidateQueries({ queryKey: ['qr-detail', params.id, isGuest] });
                   toast.success(current.is_archived ? 'Unarchived' : 'Archived');
                 }}
               >

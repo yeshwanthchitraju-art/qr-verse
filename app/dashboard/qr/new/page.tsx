@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/auth-provider';
+import { addGuestQr, addGuestLanding } from '@/lib/guest-history';
 import { useWizardStore } from '@/features/qr-wizard/wizard-store';
 import { StepBusiness } from '@/features/qr-wizard/step-business';
 import { StepSocial } from '@/features/qr-wizard/step-social';
@@ -12,7 +13,7 @@ import { StepLanding } from '@/features/qr-wizard/step-landing';
 import { StepQr } from '@/features/qr-wizard/step-qr';
 import { WizardPhonePreview } from '@/features/qr-wizard/wizard-phone-preview';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight, Loader2, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader as Loader2, Check } from 'lucide-react';
 import { generateShortId, generateSlug } from '@/utils';
 import { toast } from 'sonner';
 
@@ -26,22 +27,50 @@ const steps = [
 export default function NewQrPage() {
   const [step, setStep] = useState(1);
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const s = useWizardStore();
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!user) throw new Error('Sign in or continue as guest to save');
+      if (!user && !isGuest) throw new Error('Sign in or continue as guest to save');
       if (!s.businessName.trim()) throw new Error('Business name is required');
       if (!s.qrName.trim()) throw new Error('QR name is required');
 
       const shortId = generateShortId();
       const slug = generateSlug(s.businessName);
 
+      if (isGuest) {
+        const qrId = crypto.randomUUID();
+        addGuestLanding({
+          id: qrId,
+          slug,
+          business_name: s.businessName,
+          description: s.description || null,
+          logo_url: s.logoUrl || null,
+          template: s.template,
+          created_at: new Date().toISOString(),
+        });
+        addGuestQr({
+          id: qrId,
+          name: s.qrName,
+          short_id: shortId,
+          folder: s.folder || 'Default',
+          destination_type: s.destinationType,
+          destination_url: s.destinationType === 'url' ? s.destinationUrl : null,
+          styling: s.styling as unknown as Record<string, unknown>,
+          is_favorite: false,
+          is_archived: false,
+          scans_count: 0,
+          views_count: 0,
+          created_at: new Date().toISOString(),
+          landing: { slug, business_name: s.businessName, logo_url: s.logoUrl || null },
+        });
+        return { shortId, slug };
+      }
+
       const { data: landing, error: lpError } = await supabase
         .from('landing_pages')
         .insert({
-          user_id: user.id,
           slug,
           template: s.template,
           business_name: s.businessName,
@@ -68,7 +97,6 @@ export default function NewQrPage() {
       if (lpError) throw lpError;
 
       const { error: qrError } = await supabase.from('qr_codes').insert({
-        user_id: user.id,
         landing_page_id: landing.id,
         short_id: shortId,
         name: s.qrName,
@@ -78,12 +106,6 @@ export default function NewQrPage() {
         styling: s.styling,
       });
       if (qrError) throw qrError;
-
-      const { error: linkError } = await supabase
-        .from('landing_pages')
-        .update({ qr_id: null })
-        .eq('id', landing.id);
-      if (linkError) console.warn('link update failed', linkError);
 
       return { shortId, slug };
     },

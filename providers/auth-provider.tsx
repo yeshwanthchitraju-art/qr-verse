@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase/client';
+import { isGuestLocal, setGuestLocal, clearGuestHistory } from '@/lib/guest-history';
 import type { ProfileRow } from '@/types';
 
 interface AuthContextValue {
@@ -11,8 +12,7 @@ interface AuthContextValue {
   profile: ProfileRow | null;
   loading: boolean;
   isGuest: boolean;
-  signInAsGuest: () => Promise<void>;
-  upgradeGuest: (email: string, password: string) => Promise<void>;
+  signInAsGuest: () => void;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -23,8 +23,7 @@ const AuthContext = createContext<AuthContextValue>({
   profile: null,
   loading: true,
   isGuest: false,
-  signInAsGuest: async () => {},
-  upgradeGuest: async () => {},
+  signInAsGuest: () => {},
   signOut: async () => {},
   refreshProfile: async () => {},
 });
@@ -33,8 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const isGuest = !!(session?.user && (session.user.is_anonymous === true));
+  const [guest, setGuest] = useState(false);
 
   const loadProfile = async (userId: string) => {
     const { data } = await supabase
@@ -45,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!data) {
       const { data: created } = await supabase
         .from('profiles')
-        .insert({ id: userId, full_name: isGuest ? 'Guest' : '' })
+        .insert({ id: userId, full_name: '' })
         .select('*')
         .maybeSingle();
       setProfile(created as ProfileRow | null);
@@ -54,29 +52,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const ensureGuestSession = async (userId: string) => {
-    const { data: existing } = await supabase
-      .from('guest_sessions')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (!existing) {
-      await supabase.from('guest_sessions').insert({ user_id: userId });
-    }
-  };
-
   useEffect(() => {
     let mounted = true;
+
+    // Check local guest flag first
+    if (isGuestLocal()) {
+      setGuest(true);
+      setLoading(false);
+      return; // skip Supabase session check — guest is local-only
+    }
 
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setSession(data.session);
       if (data.session?.user) {
-        const anon = data.session.user.is_anonymous === true;
-        Promise.all([
-          loadProfile(data.session.user.id),
-          anon ? ensureGuestSession(data.session.user.id) : Promise.resolve(),
-        ]).finally(() => mounted && setLoading(false));
+        loadProfile(data.session.user.id).finally(() => mounted && setLoading(false));
       } else {
         setLoading(false);
       }
@@ -85,10 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
       if (newSession?.user) {
-        const anon = newSession.user.is_anonymous === true;
         (async () => {
           await loadProfile(newSession.user.id);
-          if (anon) await ensureGuestSession(newSession.user.id);
           setLoading(false);
         })();
       } else {
@@ -110,23 +98,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       profile,
       loading,
-      isGuest,
-      signInAsGuest: async () => {
-        const { error } = await supabase.auth.signInAnonymously();
-        if (error) throw error;
-      },
-      upgradeGuest: async (email: string, password: string) => {
-        const { error } = await supabase.auth.updateUser({
-          email,
-          password,
-          data: { full_name: profile?.full_name || '' },
-        });
-        if (error) throw error;
-        if (session?.user) {
-          await supabase.rpc('mark_guest_upgraded', { target_user_id: session.user.id });
-        }
+      isGuest: guest,
+      signInAsGuest: () => {
+        setGuestLocal(true);
+        setGuest(true);
       },
       signOut: async () => {
+        if (guest) {
+          setGuestLocal(false);
+          clearGuestHistory();
+          setGuest(false);
+          return;
+        }
         await supabase.auth.signOut();
         setProfile(null);
         setSession(null);
@@ -135,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) await loadProfile(session.user.id);
       },
     }),
-    [session, profile, loading, isGuest]
+    [session, profile, loading, guest]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

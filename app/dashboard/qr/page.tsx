@@ -3,12 +3,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import {
-  Plus, Search, Star, Archive, Copy, Trash2, MoreHorizontal,
-  QrCode as QrIcon, Folder, ArrowUpDown,
-} from 'lucide-react';
+import { Plus, Search, Star, Archive, Copy, Trash2, MoveHorizontal as MoreHorizontal, QrCode as QrIcon, Folder, ArrowUpDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/auth-provider';
+import {
+  getGuestQrHistory, addGuestQr, updateGuestQr, deleteGuestQr, duplicateGuestQr,
+  type GuestQrItem,
+} from '@/lib/guest-history';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -40,16 +41,33 @@ interface QrItem {
 }
 
 export default function QrListPage() {
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [folder, setFolder] = useState('All');
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const { data: rawData, isLoading } = useQuery<QrItem[]>({
-    queryKey: ['qr-codes', user?.id],
-    enabled: !!user,
+    queryKey: ['qr-codes', user?.id, isGuest],
+    enabled: !!user || isGuest,
     queryFn: async (): Promise<QrItem[]> => {
+      if (isGuest) {
+        return getGuestQrHistory().map((g) => ({
+          id: g.id,
+          name: g.name,
+          short_id: g.short_id,
+          folder: g.folder,
+          destination_type: g.destination_type,
+          destination_url: g.destination_url,
+          styling: g.styling,
+          is_favorite: g.is_favorite,
+          is_archived: g.is_archived,
+          scans_count: g.scans_count,
+          views_count: g.views_count,
+          created_at: g.created_at,
+          landing_pages: g.landing,
+        }));
+      }
       const { data, error } = await supabase
         .from('qr_codes')
         .select('*, landing_pages(slug, business_name, logo_url)')
@@ -102,24 +120,26 @@ export default function QrListPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Partial<QrItem> }) => {
+      if (isGuest) { updateGuestQr(id, patch); return; }
       const { error } = await supabase.from('qr_codes').update(patch).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['qr-codes', user?.id] });
-      qc.invalidateQueries({ queryKey: ['dashboard-overview', user?.id] });
+      qc.invalidateQueries({ queryKey: ['qr-codes', user?.id, isGuest] });
+      qc.invalidateQueries({ queryKey: ['dashboard-overview', user?.id, isGuest] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      if (isGuest) { deleteGuestQr(id); return; }
       const { error } = await supabase.from('qr_codes').delete().eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['qr-codes', user?.id] });
-      qc.invalidateQueries({ queryKey: ['dashboard-overview', user?.id] });
+      qc.invalidateQueries({ queryKey: ['qr-codes', user?.id, isGuest] });
+      qc.invalidateQueries({ queryKey: ['dashboard-overview', user?.id, isGuest] });
       toast.success('QR code deleted');
     },
     onError: (e: Error) => toast.error(e.message),
@@ -127,6 +147,16 @@ export default function QrListPage() {
 
   const duplicateMutation = useMutation({
     mutationFn: async (q: QrItem) => {
+      if (isGuest) {
+        duplicateGuestQr({
+          id: q.id, name: q.name, short_id: q.short_id, folder: q.folder,
+          destination_type: q.destination_type, destination_url: q.destination_url,
+          styling: q.styling, is_favorite: q.is_favorite, is_archived: q.is_archived,
+          scans_count: q.scans_count, views_count: q.views_count, created_at: q.created_at,
+          landing: q.landing_pages,
+        });
+        return;
+      }
       const { error } = await supabase
         .from('qr_codes')
         .insert({
@@ -140,7 +170,7 @@ export default function QrListPage() {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['qr-codes', user?.id] });
+      qc.invalidateQueries({ queryKey: ['qr-codes', user?.id, isGuest] });
       toast.success('QR code duplicated');
     },
     onError: (e: Error) => toast.error(e.message),

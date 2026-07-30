@@ -3,31 +3,24 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowRight, Loader as Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/providers/auth-provider';
-import { toast } from 'sonner';
 
 export function GuestCtaButton({ label = 'Start free', variant = 'default' }: { label?: string; variant?: 'default' | 'outline' }) {
   const router = useRouter();
-  const { user, signInAsGuest } = useAuth();
+  const { user, isGuest, signInAsGuest } = useAuth();
   const [loading, setLoading] = useState(false);
 
   async function handle() {
-    if (user) {
+    if (user || isGuest) {
       router.push('/dashboard');
       return;
     }
     setLoading(true);
-    try {
-      await signInAsGuest();
-      toast.success('Welcome! Explore the dashboard as a guest.');
-      router.push('/dashboard');
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
+    signInAsGuest();
+    // small delay so the cookie is written before navigation
+    setTimeout(() => router.push('/dashboard'), 50);
   }
 
   if (variant === 'outline') {

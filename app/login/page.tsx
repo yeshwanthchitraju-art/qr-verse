@@ -3,8 +3,9 @@
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
+import { Loader as Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
+import { setGuestLocal } from '@/lib/guest-history';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,16 +35,10 @@ export default function LoginPage() {
     window.location.href = redirect;
   }
 
-  async function handleGuest() {
+  function handleGuest() {
     setGuestLoading(true);
-    const { error } = await supabase.auth.signInAnonymously();
-    if (error) {
-      setGuestLoading(false);
-      toast.error(error.message);
-      return;
-    }
+    setGuestLocal(true);
     toast.success('Welcome! Exploring as a guest.');
-    // Full-page navigation so the auth cookie is present when middleware runs
     window.location.href = '/dashboard';
   }
 

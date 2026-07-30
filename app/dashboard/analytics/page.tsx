@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/auth-provider';
+import { getGuestQrHistory } from '@/lib/guest-history';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -30,12 +31,25 @@ interface AnalyticsData {
 }
 
 export default function AnalyticsPage() {
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
 
   const { data: rawData, isLoading } = useQuery<AnalyticsData>({
-    queryKey: ['analytics', user?.id],
-    enabled: !!user,
+    queryKey: ['analytics', user?.id, isGuest],
+    enabled: !!user || isGuest,
     queryFn: async (): Promise<AnalyticsData> => {
+      if (isGuest) {
+        const all = getGuestQrHistory();
+        const qrs: QrStat[] = all.map((q) => ({
+          id: q.id, name: q.name, short_id: q.short_id,
+          scans_count: q.scans_count, views_count: q.views_count,
+        }));
+        return {
+          qrs, byDay: [], deviceBreak: [], browserBreak: [], osBreak: [],
+          totalScans: qrs.reduce((a, q) => a + q.scans_count, 0),
+          totalViews: qrs.reduce((a, q) => a + q.views_count, 0),
+          recentScans: 0,
+        };
+      }
       const { data: qrsRaw } = await supabase
         .from('qr_codes')
         .select('id, name, short_id, scans_count, views_count')

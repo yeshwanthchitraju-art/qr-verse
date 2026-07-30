@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { DashboardSidebar } from '@/components/dashboard/dashboard-sidebar';
@@ -6,11 +7,14 @@ import { DashboardTopbar } from '@/components/dashboard/dashboard-topbar';
 import { GuestBanner } from '@/components/dashboard/guest-banner';
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const supabase = await createServerSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/login?redirect=/dashboard');
+  const cookieStore = cookies();
+  const isGuest = cookieStore.get('guest_mode')?.value === '1';
 
-  const isGuest = user.is_anonymous === true;
+  if (!isGuest) {
+    const supabase = await createServerSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) redirect('/login?redirect=/dashboard');
+  }
 
   return (
     <div className="flex min-h-screen bg-muted/20">

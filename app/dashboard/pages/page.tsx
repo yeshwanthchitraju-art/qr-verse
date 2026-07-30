@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ExternalLink, FileText, Eye, Plus } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/auth-provider';
+import { getGuestLandingHistory } from '@/lib/guest-history';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,12 +20,21 @@ interface PageRow {
 }
 
 export default function PagesListPage() {
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
 
   const { data: rawData, isLoading } = useQuery<PageRow[]>({
-    queryKey: ['landing-pages', user?.id],
-    enabled: !!user,
+    queryKey: ['landing-pages', user?.id, isGuest],
+    enabled: !!user || isGuest,
     queryFn: async (): Promise<PageRow[]> => {
+      if (isGuest) {
+        return getGuestLandingHistory().map((g) => ({
+          id: g.id,
+          business_name: g.business_name,
+          slug: g.slug,
+          logo_url: g.logo_url,
+          created_at: g.created_at,
+        }));
+      }
       const { data, error } = await supabase
         .from('landing_pages')
         .select('id, business_name, slug, logo_url, created_at')
