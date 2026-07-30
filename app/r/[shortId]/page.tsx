@@ -1,0 +1,60 @@
+import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
+import { createServerSupabase } from '@/lib/supabase/server';
+import { parseUserAgent, shortHash } from '@/utils';
+
+export const dynamic = 'force-dynamic';
+
+interface Props { params: { shortId: string } }
+
+export default async function RedirectPage({ params }: Props) {
+  const supabase = await createServerSupabase();
+  const { data } = await supabase
+    .from('qr_codes')
+    .select('id, destination_type, destination_url, landing_pages(id, slug)')
+    .eq('short_id', params.shortId)
+    .maybeSingle();
+
+  if (!data) {
+    redirect('/404');
+  }
+
+  const qrId = String(data.id);
+  const lpRaw = data.landing_pages as unknown;
+  const landingPage = (Array.isArray(lpRaw) ? lpRaw[0] : lpRaw) as { id: string; slug: string } | null;
+
+  // Record the scan event (best-effort; never block the redirect)
+  try {
+    const h = headers();
+    const ua = h.get('user-agent') || '';
+    const referer = h.get('referer') || null;
+    const fwd = h.get('x-forwarded-for') || '';
+    const ipHash = shortHash(fwd.split(',')[0] || 'unknown');
+    const { browser, os, device } = parseUserAgent(ua);
+
+    await supabase.from('scans').insert({
+      qr_id: qrId,
+      landing_page_id: landingPage?.id ?? null,
+      event_type: 'scan',
+      user_agent: ua,
+      referer,
+      ip_hash: ipHash,
+      device,
+      os,
+      browser,
+    });
+
+    await supabase.rpc('increment_qr_scans', { qr_id: qrId });
+  } catch (e) {
+    console.warn('scan record failed', e);
+  }
+
+  let target = '/';
+  if (data.destination_type === 'url' && data.destination_url) {
+    target = String(data.destination_url);
+  } else if (landingPage?.slug) {
+    target = `/q/${landingPage.slug}`;
+  }
+
+  redirect(target);
+}
