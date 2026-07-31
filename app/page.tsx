@@ -306,9 +306,9 @@ export default function HomePage() {
           <p className="mx-auto mt-4 max-w-xl text-background/70">
             Free forever. No credit card. Unlimited landing pages and QR codes.
           </p>
-          <Button size="lg" className="mt-8 h-12 px-6 bg-background text-foreground hover:bg-background/90" onClick={undefined}>
+          <div className="mt-8 flex justify-center">
             <GuestCtaButton label="Get started free" />
-          </Button>
+          </div>
         </div>
       </section>
 

@@ -6,7 +6,7 @@ import { QrCode as QrIcon, MousePointerClick, MapPin } from 'lucide-react';
 
 const data = Array.from({ length: 14 }, (_, i) => ({
   day: `D${i + 1}`,
-  scans: Math.round(80 + Math.sin(i / 2) * 35 + i * 6 + Math.random() * 20),
+  scans: Math.round(80 + Math.sin(i / 2) * 35 + i * 6 + ((i * 37) % 20)),
 }));
 
 const stats = [
