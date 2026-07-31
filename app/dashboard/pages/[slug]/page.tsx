@@ -17,22 +17,40 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WizardPhonePreview } from '@/features/qr-wizard/wizard-phone-preview';
 import { useWizardStore } from '@/features/qr-wizard/wizard-store';
 import { toast } from 'sonner';
+import { TEMPLATES } from '@/constants';
 import type { LandingPageRow } from '@/types';
+import { getGuestLandingHistory } from '@/lib/guest-history';
 
 type PageDetail = LandingPageRow;
 
 export default function EditLandingPage() {
   const params = useParams<{ slug: string }>();
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const qc = useQueryClient();
   const s = useWizardStore();
 
   const [loaded, setLoaded] = useState(false);
 
   const { data: page, isLoading } = useQuery<PageDetail | null>({
-    queryKey: ['landing-page', params.slug],
-    enabled: !!user && !!params.slug,
+    queryKey: ['landing-page', params.slug, isGuest],
+    enabled: (!!user || isGuest) && !!params.slug,
     queryFn: async (): Promise<PageDetail | null> => {
+      if (isGuest) {
+        const guest = getGuestLandingHistory().find((g) => g.slug === params.slug);
+        if (!guest) return null;
+        return {
+          id: guest.id,
+          slug: guest.slug,
+          business_name: guest.business_name,
+          description: guest.description,
+          logo_url: guest.logo_url,
+          template: guest.template,
+          category: '',
+          website: '', phone: '', email: '', whatsapp: '', address: '',
+          social: {}, services: [], products: [], gallery: [], testimonials: [],
+          hours: [], cta_buttons: [], custom_links: [], theme_config: {},
+        } as unknown as PageDetail;
+      }
       const { data, error } = await supabase
         .from('landing_pages')
         .select('*')
@@ -75,6 +93,10 @@ export default function EditLandingPage() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!current) throw new Error('Page not found');
+      if (isGuest) {
+        // Guest edits are local-only — stored in the wizard store and reflected in preview
+        return;
+      }
       const { error } = await supabase
         .from('landing_pages')
         .update({
@@ -103,8 +125,8 @@ export default function EditLandingPage() {
     },
     onSuccess: () => {
       toast.success('Landing page saved');
-      qc.invalidateQueries({ queryKey: ['landing-page', params.slug] });
-      qc.invalidateQueries({ queryKey: ['landing-pages', user?.id] });
+      qc.invalidateQueries({ queryKey: ['landing-page', params.slug, isGuest] });
+      qc.invalidateQueries({ queryKey: ['landing-pages', user?.id, isGuest] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -238,14 +260,15 @@ export default function EditLandingPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Template</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {['minimal', 'bold', 'elegant', 'corporate', 'dark', 'retail'].map((t) => (
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {TEMPLATES.map((t) => (
                       <button
-                        key={t}
-                        onClick={() => s.set('template', t as typeof s.template)}
-                        className={`rounded-lg border p-3 text-xs font-medium capitalize transition-colors ${s.template === t ? 'border-brand bg-brand-muted text-brand' : 'hover:bg-accent'}`}
+                        key={t.id}
+                        onClick={() => s.set('template', t.id as typeof s.template)}
+                        className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 text-xs font-medium transition-colors ${s.template === t.id ? 'border-brand bg-brand-muted text-brand' : 'hover:bg-accent'}`}
                       >
-                        {t}
+                        <span className="h-6 w-6 rounded-md" style={{ background: t.accent }} />
+                        {t.name}
                       </button>
                     ))}
                   </div>

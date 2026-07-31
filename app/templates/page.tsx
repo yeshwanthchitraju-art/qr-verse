@@ -40,7 +40,7 @@ export default function TemplatesPage() {
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">{t.description}</p>
                 <Button asChild variant="ghost" size="sm" className="mt-4 -ml-3">
-                  <Link href="/signup">Use this template <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
+                  <Link href={`/dashboard/qr/new?template=${t.id}`}>Use this template <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
                 </Button>
               </div>
             </div>

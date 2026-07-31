@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/providers/auth-provider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,9 +12,29 @@ import { useTheme } from 'next-themes';
 import { supabase } from '@/lib/supabase/client';
 
 export default function SettingsPage() {
-  const { profile, refreshProfile } = useAuth();
+  const { profile, refreshProfile, isGuest } = useAuth();
   const { theme, setTheme } = useTheme();
   const [notif, setNotif] = useState(true);
+
+  if (isGuest) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Settings</h2>
+          <p className="text-sm text-muted-foreground">Manage preferences and appearance.</p>
+        </div>
+        <Card>
+          <CardContent className="py-10 text-center">
+            <p className="text-sm font-medium">You're browsing as a guest</p>
+            <p className="mt-1 text-sm text-muted-foreground">Sign up to save your preferences and sync across devices.</p>
+            <Button asChild className="mt-5 bg-brand text-brand-foreground hover:bg-brand/90">
+              <Link href="/signup">Create an account</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   async function saveTheme(value: 'light' | 'dark' | 'system') {
     setTheme(value);

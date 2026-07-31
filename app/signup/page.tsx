@@ -2,8 +2,9 @@
 
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
-import { Loader2, Mail, Lock, User, ArrowRight } from 'lucide-react';
+import { Loader as Loader2, Mail, Lock, User, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
+import { setGuestLocal } from '@/lib/guest-history';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,10 +36,16 @@ export default function SignupPage() {
       return;
     }
     if (data.user) {
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        full_name: fullName,
-      });
+      // Wait for the session to be established before redirecting
+      await supabase.auth.getSession();
+      try {
+        await supabase.from('profiles').upsert({
+          id: data.user.id,
+          full_name: fullName,
+        });
+      } catch {
+        // Profile creation is best-effort; the auth-provider also creates it on first load
+      }
     }
     toast.success('Account created');
     // Full-page navigation so the auth cookie is present when middleware runs
@@ -103,6 +110,16 @@ export default function SignupPage() {
             Already have an account?{' '}
             <Link href="/login" className="font-medium text-foreground hover:underline">Sign in</Link>
           </p>
+
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => { setGuestLocal(true); window.location.href = '/dashboard'; }}
+              className="text-sm text-muted-foreground hover:text-foreground hover:underline"
+            >
+              or continue as a guest
+            </button>
+          </div>
         </div>
       </div>
     </div>

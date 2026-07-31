@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/providers/auth-provider';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { User, Mail, Building, Trash2, Check, Loader2 } from 'lucide-react';
+import { User, Mail, Building, Trash2, Check, Loader as Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -16,11 +17,31 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export default function AccountPage() {
-  const { user, profile, signOut, refreshProfile } = useAuth();
+  const { user, profile, isGuest, signOut, refreshProfile } = useAuth();
   const router = useRouter();
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [company, setCompany] = useState(profile?.company || '');
   const [saving, setSaving] = useState(false);
+
+  if (isGuest) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Account</h2>
+          <p className="text-sm text-muted-foreground">Your personal information.</p>
+        </div>
+        <Card>
+          <CardContent className="py-10 text-center">
+            <p className="text-sm font-medium">You're browsing as a guest</p>
+            <p className="mt-1 text-sm text-muted-foreground">Sign up to save your profile, sync across devices, and unlock all features.</p>
+            <Button asChild className="mt-5 bg-brand text-brand-foreground hover:bg-brand/90">
+              <Link href="/signup">Create an account</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   async function save() {
     setSaving(true);
@@ -35,7 +56,6 @@ export default function AccountPage() {
   }
 
   async function deleteAccount() {
-    // soft delete via sign out — real deletion would need service role
     await signOut();
     toast.success('Signed out');
     router.push('/');

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Download, ExternalLink, Copy, Trash2, Loader as Loader2, Star, Archive, Save } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, Copy, Trash2, Loader as Loader2, Star, Archive, Save, FileCode } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/providers/auth-provider';
 import { getGuestQrHistory, updateGuestQr, deleteGuestQr } from '@/lib/guest-history';
@@ -139,6 +139,29 @@ export default function QrDetailPage() {
     toast.success(`Downloaded ${extension.toUpperCase()}`);
   }
 
+  async function exportHtml() {
+    if (!current) return;
+    const slug = current.landing_pages?.slug;
+    if (!slug) {
+      toast.error('This QR points to a URL, not a landing page — nothing to export.');
+      return;
+    }
+    try {
+      const res = await fetch(`/q/${slug}`);
+      const html = await res.text();
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${current.name || 'landing'}-page.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('HTML exported');
+    } catch {
+      toast.error('Could not export HTML');
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -173,6 +196,7 @@ export default function QrDetailPage() {
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => download('png')}><Download className="mr-2 h-4 w-4" /> PNG</Button>
           <Button variant="outline" size="sm" onClick={() => download('svg')}><Download className="mr-2 h-4 w-4" /> SVG</Button>
+          <Button variant="outline" size="sm" onClick={exportHtml}><FileCode className="mr-2 h-4 w-4" /> Export HTML</Button>
         </div>
       </div>
 
