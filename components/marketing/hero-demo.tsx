@@ -1,11 +1,9 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
 import { Smartphone, MousePointerClick } from 'lucide-react';
 import { DEFAULT_QR_STYLING } from '@/utils/qr';
-
-const QrPreview = dynamic(() => import('@/components/qr/qr-preview'), { ssr: false });
+import QrPreview from '@/components/qr/qr-preview';
 
 const floating = {
   animate: { y: [0, -10, 0] },
