@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Loader as Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
-import { setGuestLocal } from '@/lib/guest-history';
+import { setGuestLocal, setGuestLocalOff } from '@/lib/guest-history';
+import { safeRedirect } from '@/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +25,7 @@ function LoginForm() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setGuestLocalOff();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
@@ -31,13 +33,12 @@ function LoginForm() {
       return;
     }
     toast.success('Welcome back');
-    window.location.href = redirect;
+    window.location.href = safeRedirect(redirect);
   }
 
   function handleGuest() {
     setGuestLoading(true);
     setGuestLocal(true);
-    toast.success('Welcome! Exploring as a guest.');
     window.location.href = '/dashboard';
   }
 

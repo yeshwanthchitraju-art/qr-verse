@@ -67,8 +67,16 @@ export function setGuestLocal(on: boolean): void {
     safeSet(GUEST_FLAG_KEY, '1');
     document.cookie = 'guest_mode=1; path=/; max-age=2592000';
   } else {
-    safeRemove(GUEST_FLAG_KEY);
+    setGuestLocalOff();
+  }
+}
+
+export function setGuestLocalOff(): void {
+  safeRemove(GUEST_FLAG_KEY);
+  try {
     document.cookie = 'guest_mode=; path=/; max-age=0';
+  } catch {
+    // ignore
   }
 }
 

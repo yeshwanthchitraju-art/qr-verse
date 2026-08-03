@@ -1,81 +1,74 @@
-export function generateSlug(input: string): string {
-  const base = (input || 'page')
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40);
-  const suffix = Math.random().toString(36).slice(2, 6);
-  return `${base || 'page'}-${suffix}`;
-}
-
-export function generateShortId(length = 8): string {
-  const alphabet = 'abcdefghijkmnpqrstuvwxyz23456789';
-  let out = '';
-  const bytes = new Uint8Array(length);
-  crypto.getRandomValues(bytes);
-  for (let i = 0; i < length; i++) {
-    out += alphabet[bytes[i] % alphabet.length];
-  }
-  return out;
-}
-
-export function shortHash(input: string): string {
-  let h = 5381;
-  for (let i = 0; i < input.length; i++) {
-    h = ((h << 5) + h) ^ input.charCodeAt(i);
-  }
-  return (h >>> 0).toString(36);
-}
-
-export function classNames(...inputs: Array<string | undefined | null | false>): string {
-  return inputs.filter(Boolean).join(' ');
+export function safeRedirect(target: string | null | undefined): string {
+  const fallback = '/dashboard';
+  if (!target) return fallback;
+  if (target.startsWith('/') && !target.startsWith('//')) return target;
+  return fallback;
 }
 
 export function formatNumber(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return String(n);
 }
 
-export function relativeTime(iso: string): string {
-  const date = new Date(iso);
-  const diff = Date.now() - date.getTime();
-  const sec = Math.floor(diff / 1000);
-  if (sec < 60) return 'just now';
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const day = Math.floor(hr / 24);
-  if (day < 30) return `${day}d ago`;
-  return date.toLocaleDateString();
+export function relativeTime(date: string | Date): string {
+  const now = Date.now();
+  const then = new Date(date).getTime();
+  const diff = Math.max(0, now - then);
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  if (days > 30) return new Date(date).toLocaleDateString();
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  if (minutes > 0) return `${minutes}m ago`;
+  return 'just now';
 }
 
-export function parseUserAgent(ua: string): {
-  browser: string;
-  os: string;
-  device: string;
-} {
-  const lower = ua.toLowerCase();
-  let browser = 'Other';
-  if (lower.includes('edg/')) browser = 'Edge';
-  else if (lower.includes('chrome/') && !lower.includes('chromium')) browser = 'Chrome';
-  else if (lower.includes('firefox/')) browser = 'Firefox';
-  else if (lower.includes('safari/') && !lower.includes('chrome')) browser = 'Safari';
-  else if (lower.includes('opr/') || lower.includes('opera')) browser = 'Opera';
+export function generateShortId(length = 8): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return result;
+}
 
-  let os = 'Other';
-  if (lower.includes('windows')) os = 'Windows';
-  else if (lower.includes('android')) os = 'Android';
-  else if (lower.includes('iphone') || lower.includes('ipad') || lower.includes('mac os')) os = 'iOS';
-  else if (lower.includes('mac')) os = 'macOS';
-  else if (lower.includes('linux')) os = 'Linux';
+export function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    || generateShortId(6);
+}
 
-  let device = 'Desktop';
-  if (lower.includes('ipad') || lower.includes('tablet')) device = 'Tablet';
-  else if (/(mobile|iphone|android.*mobile|windows phone)/.test(lower)) device = 'Mobile';
+export function parseUserAgent(ua: string): { device: string; os: string; browser: string } {
+  const device = /iPad|Tablet/i.test(ua) ? 'tablet'
+    : /Mobile|Android|iPhone/i.test(ua) ? 'mobile'
+    : 'desktop';
+  const os = /Windows/i.test(ua) ? 'Windows'
+    : /Mac OS|Macintosh/i.test(ua) ? 'macOS'
+    : /Android/i.test(ua) ? 'Android'
+    : /iPhone|iPad|iOS/i.test(ua) ? 'iOS'
+    : /Linux/i.test(ua) ? 'Linux'
+    : 'Unknown';
+  const browser = /Edg/i.test(ua) ? 'Edge'
+    : /Chrome/i.test(ua) ? 'Chrome'
+    : /Firefox/i.test(ua) ? 'Firefox'
+    : /Safari/i.test(ua) ? 'Safari'
+    : 'Unknown';
+  return { device, os, browser };
+}
 
-  return { browser, os, device };
+export function shortHash(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    const char = input.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
 }

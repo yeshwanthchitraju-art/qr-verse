@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { Loader as Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
+import { setGuestLocalOff } from '@/lib/guest-history';
+import { safeRedirect } from '@/utils';
 import { toast } from 'sonner';
 
 interface SocialAuthProps {
@@ -35,10 +37,11 @@ export function SocialAuth({ redirectTo = '/dashboard' }: SocialAuthProps) {
 
   async function handleOAuth(provider: 'google' | 'github') {
     setLoadingProvider(provider);
+    setGuestLocalOff();
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`,
+        redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(safeRedirect(redirectTo))}`,
       },
     });
     if (error) {

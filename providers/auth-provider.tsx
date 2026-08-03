@@ -55,31 +55,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    // Check local guest flag first
-    if (isGuestLocal()) {
-      setGuest(true);
-      setLoading(false);
-      return; // skip Supabase session check — guest is local-only
-    }
-
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
-      setSession(data.session);
-      if (data.session?.user) {
+      if (data.session) {
+        setGuest(false);
+        setSession(data.session);
         loadProfile(data.session.user.id).finally(() => mounted && setLoading(false));
       } else {
+        // Only fall back to local guest mode if there is no real session
+        if (isGuestLocal()) {
+          setGuest(true);
+        }
         setLoading(false);
       }
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      if (newSession?.user) {
+      if (newSession) {
+        setGuest(false);
+        setSession(newSession);
         (async () => {
           await loadProfile(newSession.user.id);
           setLoading(false);
         })();
       } else {
+        setSession(null);
         setProfile(null);
         setLoading(false);
       }

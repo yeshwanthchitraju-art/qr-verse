@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
+import { setGuestLocalOff } from '@/lib/guest-history';
+import { safeRedirect } from '@/utils';
 import { Logo } from '@/components/shared/logo';
 import { Loader as Loader2 } from 'lucide-react';
 
@@ -13,7 +15,7 @@ function CallbackHandler() {
 
   useEffect(() => {
     async function handleCallback() {
-      const redirect = params.get('redirect') || '/dashboard';
+      const redirect = safeRedirect(params.get('redirect'));
       const code = params.get('code');
 
       if (!code) {
@@ -27,6 +29,8 @@ function CallbackHandler() {
         setError(exchangeError.message);
         return;
       }
+
+      setGuestLocalOff();
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {

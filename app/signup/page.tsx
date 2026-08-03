@@ -4,7 +4,7 @@ import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { Loader as Loader2, Mail, Lock, User, ArrowRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
-import { setGuestLocal } from '@/lib/guest-history';
+import { setGuestLocal, setGuestLocalOff } from '@/lib/guest-history';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,6 +25,7 @@ export default function SignupPage() {
       return;
     }
     setLoading(true);
+    setGuestLocalOff();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -48,7 +49,6 @@ export default function SignupPage() {
       }
     }
     toast.success('Account created');
-    // Full-page navigation so the auth cookie is present when middleware runs
     window.location.href = '/dashboard';
   }
 
