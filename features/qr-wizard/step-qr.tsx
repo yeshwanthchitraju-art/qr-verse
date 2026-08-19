@@ -66,7 +66,7 @@ export function StepQr() {
   async function downloadPng() {
     const { default: QRCodeStyling } = await import('qr-code-styling');
     const shortId = generateShortId();
-    const qr = new QRCodeStyling(buildQrOptions(`https://qrverse.app/r/${shortId}`, s.styling, 1024));
+    const qr = new QRCodeStyling(buildQrOptions(`${window.location.origin}/r/${shortId}`, s.styling, 1024));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (qr as any).download({ name: `${s.qrName || 'qrverse'}-qr`, extension: 'png' });
     toast.success('QR downloaded as PNG');
@@ -204,7 +204,7 @@ export function StepQr() {
         <div className="flex flex-col items-center rounded-2xl border bg-card p-6">
           <div className="rounded-xl bg-white p-3 shadow-sm">
             <QrPreview
-              value={`https://qrverse.app/r/preview`}
+              value={`${window.location.origin}/r/preview`}
               styling={s.styling}
               size={220}
             />
@@ -213,7 +213,7 @@ export function StepQr() {
             <Download className="mr-2 h-4 w-4" /> Download PNG
           </Button>
           <p className="mt-3 text-center text-xs text-muted-foreground">
-            The final QR will encode <span className="font-mono">qrverse.app/r/…</span> — fully editable later.
+            The final QR will encode <span className="font-mono">{typeof window !== 'undefined' ? window.location.host : 'your-app'}/r/…</span> — fully editable later.
           </p>
         </div>
       </div>

@@ -9,19 +9,20 @@ interface Props { params: { shortId: string } }
 
 export default async function RedirectPage({ params }: Props) {
   const supabase = await createServerSupabase();
-  const { data } = await supabase
-    .from('qr_codes')
-    .select('id, destination_type, destination_url, landing_pages(id, slug)')
-    .eq('short_id', params.shortId)
-    .maybeSingle();
+  const { data: rpcData, error: rpcError } = await supabase.rpc(
+    'resolve_public_qr_redirect',
+    { p_short_id: params.shortId },
+  );
+  const data = Array.isArray(rpcData) ? rpcData[0] : rpcData;
 
-  if (!data) {
+  if (rpcError || !data) {
     notFound();
   }
 
-  const qrId = String(data.id);
-  const lpRaw = data.landing_pages as unknown;
-  const landingPage = (Array.isArray(lpRaw) ? lpRaw[0] : lpRaw) as { id: string; slug: string } | null;
+  const qrId = String(data.qr_id);
+  const landingPage = data.landing_page_id && data.landing_slug
+    ? { id: String(data.landing_page_id), slug: String(data.landing_slug) }
+    : null;
 
   // Record the scan event (best-effort; never block the redirect)
   try {
